@@ -69,8 +69,6 @@ def conjugate_gradients(matvec, b, x_0, tolerance=1e-4, max_iter=None, trace=Fal
         x_k += alpha_k * d_k
         g_k_1 = g_k + alpha_k * Ad_k
 
-        #if np.linalg.norm(g_k_1, ord=2)**2 <= tolerance:
-            #break
         if np.linalg.norm(matvec(x_k) - b) <= tolerance * np.linalg.norm(b):
             break
 
@@ -94,7 +92,7 @@ def conjugate_gradients(matvec, b, x_0, tolerance=1e-4, max_iter=None, trace=Fal
 
 
 def lbfgs(oracle, x_0, tolerance=1e-4, max_iter=500, memory_size=10,
-          line_search_options=None, display=False, trace=False):
+line_search_options=None, display=False, trace=False):
     """
     Limited-memory Broyden–Fletcher–Goldfarb–Shanno's method for optimization.
 
@@ -136,16 +134,72 @@ def lbfgs(oracle, x_0, tolerance=1e-4, max_iter=500, memory_size=10,
             - history['grad_norm'] : list of values Euclidian norms ||g(x_k)|| of the gradient on every step of the algorithm
             - history['x'] : list of np.arrays, containing the trajectory of the algorithm. ONLY STORE IF x.size <= 2
     """
+
     history = defaultdict(list) if trace else None
     line_search_tool = get_line_search_tool(line_search_options)
     x_k = np.copy(x_0)
 
     # TODO: Implement L-BFGS method.
     # Use line_search_tool.line_search() for adaptive step size.
+    n = len(x_0)
+    iter = 0
+    H = deque()
+    g_k = oracle.grad(x_0)
+
+    def BFGS_multiply(v, H_k, gamma_0):
+        if len(H_k) == 0:
+            return gamma_0 * v
+        s, y = H_k[-1]
+        H_k.pop()
+        v_ = v - (np.dot(s, v))/(np.dot(y, s)) * y
+        z = BFGS_multiply(v_, H_k, gamma_0)
+        return z + (np.dot(s, v) - np.dot(y, z)) / (np.dot(y, s)) * s
+
+    def LBFGS_direction():
+        if len(H) == 0:
+            return -oracle.grad(x_k)
+        s, y = H[-1]
+        gamma_0 = (np.dot(y, s)) / (np.dot(y, y))
+        H_k = H.copy()
+        return BFGS_multiply(-oracle.grad(x_k), H_k,  gamma_0)
+
+    grad_x0_norm = np.linalg.norm(g_k)
+    start_time = datetime.now()
+    try:
+        while iter < max_iter:
+            iter += 1
+            d_k = LBFGS_direction()
+            x_k_1 = x_k
+            alpha_k = get_line_search_tool().line_search(oracle, x_k, d_k) #Wolfe
+            x_k = x_k + alpha_k * d_k
+            g_k_1 = g_k
+            g_k = oracle.grad(x_k)
+            if trace:
+                history['func'].append(oracle.func(x_k))
+                history['time'].append(datetime.now() - start_time)
+                history['grad_norm'].append(np.linalg.norm(g_k))
+                if n <= 2:
+                    history['x'].append(x_k)
+
+            if np.linalg.norm(g_k) <= tolerance * grad_x0_norm:
+                break
+            s_k = x_k - x_k_1
+            y_k = g_k - g_k_1
+            H.append((s_k, y_k))
+            if len(H) > memory_size:
+                H.popleft()
+    except Exception as e:
+        if display:
+            print(str(e))
+        return None, 'computational_error', history
+
+    if iter == max_iter and np.linalg.norm(oracle.grad(x_k)) > tolerance * grad_x0_norm:
+        return None, 'iterations_exceeded', history
+
     return x_k, 'success', history
 
 
-def hessian_free_newton(oracle, x_0, tolerance=1e-4, max_iter=500, 
+def hessian_free_newton(oracle, x_0, tolerance=1e-4, max_iter=500,
                         line_search_options=None, display=False, trace=False):
     """
     Hessian Free method for optimization.
@@ -187,12 +241,51 @@ def hessian_free_newton(oracle, x_0, tolerance=1e-4, max_iter=500,
             - history['x'] : list of np.arrays, containing the trajectory of the algorithm. ONLY STORE IF x.size <= 2
     """
     history = defaultdict(list) if trace else None
+    line_search_options = {"method": "Armijo", "alpha_0": 1.0}
     line_search_tool = get_line_search_tool(line_search_options)
     x_k = np.copy(x_0)
 
     # TODO: Implement hessian-free Newton's method.
     # Use line_search_tool.line_search() for adaptive step size.
-    return x_k, 'success', history
+    result_message = "success"
+    start_time = datetime.now()
+    iter = 0
+    g_k = oracle.grad(x_0)
+    d_k_1 = -g_k
+    try:
+        while iter < max_iter:
+            iter += 1
+            eps_k = min(0.5, np.sqrt(np.linalg.norm(g_k))) * np.linalg.norm(g_k)
+            matvec = lambda v: oracle.hess_vec(x_k, v)
+            d_k, message, _ = conjugate_gradients(matvec, -g_k, d_k_1, eps_k)
+            while message != "success" or g_k.dot(d_k) >= 0:
+                if display and message != "success":
+                    print("Something went wrong while performing conjugate_gradients methods:", message)
+                eps_k /= 10
+                d_k, message, _ = conjugate_gradients(matvec, -g_k, d_k, eps_k)
+            alpha_k = line_search_tool.line_search(oracle, x_k, d_k)
+            x_k = x_k + alpha_k * d_k
+            g_k = oracle.grad(x_k)
+            if trace:
+                history['func'].append(oracle.func(x_k))
+                history['time'].append(datetime.now() - start_time)
+                history['grad_norm'].append(np.linalg.norm(g_k))
+                if len(x_0) <= 2:
+                    history['x'].append(x_k)
+            # как на лекции
+            if np.linalg.norm(g_k) ** 2 <= tolerance:
+                break
+            d_k_1 = d_k
+    except Exception as e:
+        if display:
+            print(str(e))
+        result_message = 'computational_error'
+    if result_message != 'success':
+        return None, result_message, history
+
+    if np.linalg.norm(g_k) ** 2 > tolerance and iter == max_iter:
+        result_message = "iterations_exceeded"
+    return x_k, result_message, history
 
 
 def gradient_descent(oracle, x_0, tolerance=1e-5, max_iter=10000,
@@ -256,7 +349,8 @@ def gradient_descent(oracle, x_0, tolerance=1e-5, max_iter=10000,
     result_message = "success"
 
     try:
-        while it < max_iter and np.linalg.norm(oracle.grad(x_k), ord=2)**2 > tolerance * (np.linalg.norm(oracle.grad(x_0), ord=2)**2):
+        while it < max_iter and np.linalg.norm(oracle.grad(x_k), ord=2) ** 2 > tolerance * (
+                np.linalg.norm(oracle.grad(x_0), ord=2) ** 2):
             d_k = -oracle.grad(x_k)
             alpha = line_search_tool.line_search(oracle, x_k, d_k, alpha)
             if alpha is None:
@@ -269,15 +363,15 @@ def gradient_descent(oracle, x_0, tolerance=1e-5, max_iter=10000,
                 history['grad_norm'].append(np.linalg.norm(oracle.grad(x_k), ord=2))
                 if len(x_k) <= 2:
                     history['x'].append(x_k)
-            #if display:
-                #print(f"iter={it}, x_k={x_k}, f(x_k)={oracle.func(x_k)}")
+            # if display:
+            # print(f"iter={it}, x_k={x_k}, f(x_k)={oracle.func(x_k)}")
             it += 1
     except Exception as e:
         if display:
             print(str(e))
         result_message = 'computational_error'
 
-    if it == max_iter and np.linalg.norm(oracle.grad(x_k))**2 > tolerance * (np.linalg.norm(oracle.grad(x_0)) ** 2):
+    if it == max_iter and np.linalg.norm(oracle.grad(x_k)) ** 2 > tolerance * (np.linalg.norm(oracle.grad(x_0)) ** 2):
         result_message = 'iterations_exceeded'
 
     if display:

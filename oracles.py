@@ -67,6 +67,8 @@ class QuadraticOracle(BaseSmoothOracle):
     def hess(self, x):
         return self.A
 
+    def hess_vec(self, x, v):
+        return self.A.dot(v)
     def minimize_directional(self, x, d):
         """
         Minimizes the function with respect to a specific direction:
@@ -123,7 +125,10 @@ class LogRegL2Oracle(BaseSmoothOracle):
 
     def hess_vec(self, x, v):
         # TODO: Implement
-        return self.hess(x).dot(v)
+        n = len(x)
+        m = len(self.b)
+        g = scipy.special.expit(-self.b * self.matvec_Ax(x))
+        return self.matvec_ATx(g * (1.0 - g) * self.matvec_Ax(v)) / m + self.regcoef * v
 
 
 class LogRegL2OptimizedOracle(LogRegL2Oracle):
@@ -195,6 +200,8 @@ def test_hess_vec():
     v = np.random.rand(3)
     print(oracle.hess_vec(x, v))
     print(hess_vec_finite_diff(oracle.func, x, v))
+    #print(oracle.hess(x).dot(v))
+    print("- - -")
 
 
 def perform_test_multiple_times(n=5):
