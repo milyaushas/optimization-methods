@@ -3,6 +3,7 @@ import scipy
 from scipy.special import expit
 
 
+
 class BaseSmoothOracle(object):
     """
     Base class for implementation of oracles.
@@ -115,12 +116,14 @@ class LogRegL2Oracle(BaseSmoothOracle):
 
     def hess(self, x):
         # TODO: Implement
-        pass
+        n = len(x)
+        m = len(self.b)
+        g = scipy.special.expit(-self.b * self.matvec_Ax(x))
+        return self.matmat_ATsA(g * (1.0 - g)) / m + self.regcoef * np.eye(n)
 
     def hess_vec(self, x, v):
-        #TODO: Implement
-        pass
-
+        # TODO: Implement
+        return self.hess(x).dot(v)
 
 
 class LogRegL2OptimizedOracle(LogRegL2Oracle):
@@ -161,7 +164,7 @@ def create_log_reg_oracle(A, b, regcoef, oracle_type='usual'):
 
     def matmat_ATsA(s):
         # TODO: Implement
-        return A.T.dot(scipy.diags(s, 0).dot(A))
+        return A.T.dot(np.diag(s)).dot(A)
 
     if oracle_type == 'usual':
         oracle = LogRegL2Oracle
@@ -179,14 +182,21 @@ def hess_vec_finite_diff(func, x, v, eps=1e-5):
     """
     # TODO: Implement numerical estimation of the Hessian times vector
     n = len(x)
-    result = np.zeros((n, n))
+    E = np.eye(n)
+    hess_vec = np.zeros(n)
+    for i, e_i in enumerate(E):
+        hess_vec[i] = (func(x + eps * v + eps * e_i) - func(x + eps * v) - func(x + eps * e_i) + func(x)) / eps**2
+    return hess_vec
+def test_hess_vec():
+    A = np.random.rand(3, 3)
+    b = np.random.rand(3)
+    oracle = create_log_reg_oracle(A, b, 1)
+    x = np.random.rand(3)
+    v = np.random.rand(3)
+    print(oracle.hess_vec(x, v))
+    print(hess_vec_finite_diff(oracle.func, x, v))
+
+
+def perform_test_multiple_times(n=5):
     for i in range(n):
-        for j in range(n):
-            eps_i = [eps if k == i else 0 for k in range(n)]
-            eps_j = [eps if k == j else 0 for k in range(n)]
-            result[i][j] = (func(x + eps_i + eps_j)
-                            - func(x + eps_i)
-                            - func(x + eps_j)
-                            + func(x)
-                            ) / (eps * eps)
-    return result
+        test_hess_vec()
