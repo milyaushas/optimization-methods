@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict, deque  # Use this for effective implementation of L-BFGS
 from utils import get_line_search_tool
-from datetime import datetime
+import time
 
 
 def conjugate_gradients(matvec, b, x_0, tolerance=1e-4, max_iter=None, trace=False, display=False):
@@ -54,7 +54,7 @@ def conjugate_gradients(matvec, b, x_0, tolerance=1e-4, max_iter=None, trace=Fal
     if max_iter is None:
         max_iter = len(x_0)
 
-    start_time = datetime.now()
+    start_time = time.time()
 
     iter = 0
     Ax_k = matvec(x_k)
@@ -77,7 +77,7 @@ def conjugate_gradients(matvec, b, x_0, tolerance=1e-4, max_iter=None, trace=Fal
         g_k = g_k_1
 
         if trace:
-            history['time'].append(datetime.now() - start_time)
+            history['time'].append(time.time() - start_time)
             history['residual_norm'].append(np.linalg.norm(g_k_1, ord=2))
             if x_k.size <= 2:
                 history['x'].append(x_k)
@@ -164,7 +164,7 @@ line_search_options=None, display=False, trace=False):
         return BFGS_multiply(-oracle.grad(x_k), H_k,  gamma_0)
 
     grad_x0_norm = np.linalg.norm(g_k)
-    start_time = datetime.now()
+    start_time = time.time()
     try:
         while iter < max_iter:
             iter += 1
@@ -176,7 +176,7 @@ line_search_options=None, display=False, trace=False):
             g_k = oracle.grad(x_k)
             if trace:
                 history['func'].append(oracle.func(x_k))
-                history['time'].append(datetime.now() - start_time)
+                history['time'].append(time.time() - start_time)
                 history['grad_norm'].append(np.linalg.norm(g_k))
                 if n <= 2:
                     history['x'].append(x_k)
@@ -248,7 +248,7 @@ def hessian_free_newton(oracle, x_0, tolerance=1e-4, max_iter=500,
     # TODO: Implement hessian-free Newton's method.
     # Use line_search_tool.line_search() for adaptive step size.
     result_message = "success"
-    start_time = datetime.now()
+    start_time = time.time()
     iter = 0
     g_k = oracle.grad(x_0)
     d_k_1 = -g_k
@@ -268,7 +268,7 @@ def hessian_free_newton(oracle, x_0, tolerance=1e-4, max_iter=500,
             g_k = oracle.grad(x_k)
             if trace:
                 history['func'].append(oracle.func(x_k))
-                history['time'].append(datetime.now() - start_time)
+                history['time'].append(time.time() - start_time)
                 history['grad_norm'].append(np.linalg.norm(g_k))
                 if len(x_0) <= 2:
                     history['x'].append(x_k)
@@ -343,7 +343,7 @@ def gradient_descent(oracle, x_0, tolerance=1e-5, max_iter=10000,
 
     # TODO: Implement gradient descent
     # Use line_search_tool.line_search() for adaptive step size.er:
-    start_time = datetime.now()
+    start_time = time.time()
     it = 0
     alpha = None
     result_message = "success"
@@ -358,7 +358,7 @@ def gradient_descent(oracle, x_0, tolerance=1e-5, max_iter=10000,
                 break
             x_k += float(alpha) * d_k
             if trace:
-                history['time'].append(datetime.now() - start_time)
+                history['time'].append(time.time() - start_time)
                 history['func'].append(oracle.func(x_k))
                 history['grad_norm'].append(np.linalg.norm(oracle.grad(x_k), ord=2))
                 if len(x_k) <= 2:
