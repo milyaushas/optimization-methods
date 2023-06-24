@@ -10,7 +10,7 @@ def experiment_1():
     #plot(optimization_method="gradient_descent", method="Wolfe",    path="./1/grad_descent_Wolfe_small.png")
 
     #plot(optimization_method="conjugate_gradients", path="./1/conjugate_gradients.png")
-    plot(optimization_method="conjugate_gradients", path="./1/conjugate_gradients_small.png")
+    plot(optimization_method="conjugate_gradients", path="1/conjugate_gradients_small.png")
 
 
 def generate_Ab(k, n):

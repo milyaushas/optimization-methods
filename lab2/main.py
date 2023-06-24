@@ -1,6 +1,6 @@
-from experiment_1 import experiment_1
-from experiment_2 import  experiment_2
-from experiment_3 import  experiment_3
+from lab2.experiment_1 import experiment_1
+from lab2.experiment_2 import  experiment_2
+from lab2.experiment_3 import  experiment_3
 
 def main():
     #perform_test_multiple_times()
