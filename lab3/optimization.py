@@ -48,6 +48,50 @@ def subgradient_method(oracle, x_0, tolerance=1e-2, max_iter=1000, alpha_0=1,
             - history['x'] : list of np.arrays, containing the trajectory of the algorithm. ONLY STORE IF x.size <= 2
     """
     # TODO: implement.
+    start_time = time()
+
+    history = defaultdict(list) if trace else None
+    x_k = np.copy(x_0) * 1.0
+    x_star = np.copy(x_0)
+    f_min = oracle.func(x_k)
+    f_k = f_min
+    duality_gap = oracle.duality_gap(x_k)
+
+    # we can check stopping  criterion only if .duality_gap() is available in oracle
+    CHECK_STOPPING_CRITERION = duality_gap is not None
+
+
+    for k in range(1, max_iter + 1):
+
+        if CHECK_STOPPING_CRITERION:
+            duality_gap = oracle.duality_gap(x_k)
+            if np.abs(duality_gap) <= tolerance:
+                return x_k, 'success', history
+
+        if trace:
+            history['func'].append(f_k)
+            history['time'].append(time() - start_time)
+            if CHECK_STOPPING_CRITERION:
+                history['duality_gap'].append(duality_gap)
+            if x_k.size <= 2:
+                history['x'].append(x_k)
+
+        if k == max_iter and CHECK_STOPPING_CRITERION:
+            return x_star, 'iterations_exceeded', history
+
+        alpha_k = alpha_0 / np.sqrt(k + 1)
+        subgrad = oracle.subgrad(x_k)
+        x_k = x_k - alpha_k * subgrad / np.linalg.norm(subgrad)
+        f_k = oracle.func(x_k)
+
+        if f_k < f_min:
+            f_min = f_k
+            x_star = np.copy(x_k)
+
+        if display:
+            print(f"k = {k}, x_star = {x_star}, f_min = {f_min}")
+
+    return x_star, 'success', history
 
 
 def proximal_gradient_method(oracle, x_0, L_0=1, tolerance=1e-5,
