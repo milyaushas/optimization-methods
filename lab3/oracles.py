@@ -131,8 +131,13 @@ class L1RegOracle(BaseProxOracle):
         return self.regcoef * np.linalg.norm(x, ord=1)
 
     def prox(self, x, alpha):
-        alpha *= self.regcoef
-        vfunc = np.vectorize(lambda x_i: np.sign(x_i) * max(np.abs(x_i) - alpha, 0))
+        """
+        Implementation of proximal mapping.
+        prox_{alpha}(x) := argmin_y { 1/(2*alpha) * ||y - x||_2^2 + h(y) }.
+        => prox_{alpha}(x) := argmin_y { 1/2 * ||y - x||_2^2 + alpha * lambda ||x||_1 }.
+        """
+        lmbda = alpha * self.regcoef
+        vfunc = np.vectorize(lambda x_i: np.sign(x_i) * max(np.abs(x_i) - lmbda, 0))
         return vfunc(x)
 
 
