@@ -149,18 +149,11 @@ def proximal_gradient_method(oracle, x_0, L_0=1, tolerance=1e-5,
     CHECK_STOPPING_CRITERION = duality_gap is not None
 
     k = 0
+    iterations = 1
 
     while k <= max_iter:
         if display:
             print(f"k = {k}, x_k = {x_k}, f_k= {f_k}")
-
-        if trace:
-            history['func'].append(f_k)
-            history['time'].append(time() - start_time)
-            if CHECK_STOPPING_CRITERION:
-                history['duality_gap'].append(duality_gap)
-            if x_k.size <= 2:
-                history['x'].append(x_k)
 
         if CHECK_STOPPING_CRITERION:
             if np.abs(duality_gap) <= tolerance:
@@ -177,14 +170,26 @@ def proximal_gradient_method(oracle, x_0, L_0=1, tolerance=1e-5,
 
         x_diff = x_next - x_k
         if oracle.func(x_next) <= f_k + np.dot(grad, x_diff) + L_k / 2.0 * np.dot(x_diff, x_diff):
+            if trace:
+                history['func'].append(f_k)
+                history['time'].append(time() - start_time)
+                if CHECK_STOPPING_CRITERION:
+                    history['duality_gap'].append(duality_gap)
+                if x_k.size <= 2:
+                    history['x'].append(x_k)
+                history['iterations'].append(iterations)
+
             L_k = L_k / 2.0
             f_k = oracle.func(x_next)
             x_k = x_next
             duality_gap = oracle.duality_gap(x_k)
             k += 1
+
+            iterations = 1
             continue
 
         L_k = 2.0 * L_k
+        iterations += 1
 
 
 def proximal_fast_gradient_method(oracle, x_0, L_0=1.0, tolerance=1e-5,
@@ -247,18 +252,11 @@ def proximal_fast_gradient_method(oracle, x_0, L_0=1.0, tolerance=1e-5,
 
     k = 0
     s = 0
+    iterations = 1
 
     while k <= max_iter:
         if display:
             print(f"k = {k}, x_k = {x_k}, f_k = {f_k}, x_start = {x_star}, f_min = {f_min}")
-
-        if trace:
-            history['func'].append(f_k)
-            history['time'].append(time() - start_time)
-            if CHECK_STOPPING_CRITERION:
-                history['duality_gap'].append(duality_gap)
-            if x_k.size <= 2:
-                history['x'].append(x_k)
 
         if CHECK_STOPPING_CRITERION:
             if np.abs(duality_gap) <= tolerance:
@@ -274,7 +272,7 @@ def proximal_fast_gradient_method(oracle, x_0, L_0=1.0, tolerance=1e-5,
         y_k = (A_k * x_k + a_k * v_k) / A_next
 
         s_k = s +  a_k * oracle.grad(y_k)
-        v_next = oracle.prox(x_0 - s)
+        v_next = oracle.prox(x_0 - s, 1.0 / L_k)
 
         x_next = (A_k * x_k + a_k * v_next) / A_next
 
@@ -282,14 +280,27 @@ def proximal_fast_gradient_method(oracle, x_0, L_0=1.0, tolerance=1e-5,
         f_next = oracle.func(x_next)
         if f_next > oracle.func(y_k) + np.dot(oracle.grad(y_k), diff) + L_k / 2.0 * np.dot(diff, diff):
             L_k = 2.0 * L_k
+            iterations += 1
             continue
+
+        if trace:
+            history['func'].append(f_k)
+            history['time'].append(time() - start_time)
+            if CHECK_STOPPING_CRITERION:
+                history['duality_gap'].append(duality_gap)
+            if x_k.size <= 2:
+                history['x'].append(x_k)
+            history['iterations'].append(iterations)
 
         L_k = L_k / 2
         x_k = x_next
+        duality_gap = oracle.duality_gap(x_k)
         v_k = v_next
         f_k = f_next
         s = s_k
         k += 1
+
+        iterations = 1
 
         if f_k < f_min:
             x_star = x_k
